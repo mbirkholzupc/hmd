@@ -7,7 +7,7 @@ from LSP import proc_lsp
 from LSPET import proc_lspet
 from MPII import proc_mpii
 from COCO import proc_coco
-from H36M import proc_h36m
+#from H36M import proc_h36m
 
 sys.path.append("../src/")
 from utility import take_notes
@@ -21,7 +21,7 @@ lspet_path = conf.get('DATA', 'lspet_path')
 upi_path = conf.get('DATA', 'upi_path')
 coco_api_path = conf.get('DATA', 'coco_api_path')
 coco_list_path = conf.get('DATA', 'coco_list_path')
-h36m_path = conf.get('DATA', 'h36m_path')
+#h36m_path = conf.get('DATA', 'h36m_path')
 
 c_time = datetime.datetime.now()
 time_string = "%s-%02d:%02d:%02d" % (c_time.date(), c_time.hour, c_time.minute, c_time.second)
@@ -38,19 +38,41 @@ for i in [tgt_path + "train/", tgt_path + "train/img/",
     if not os.path.exists(i):
         os.makedirs(i)
 
-p_train, p_test = proc_lsp(tgt_path + "train/", tgt_path + "test/",
-                                     p_train, p_test,
-                                     lsp_path, upi_path)
+#p_train, p_test = proc_lsp(tgt_path + "train/", tgt_path + "test/",
+#                                     p_train, p_test,
+#                                     lsp_path, upi_path)
 
-p_train = proc_lspet(tgt_path + "train/", p_train,
-                          lspet_path, upi_path)
+# Fill these in after each run based on last output
+p_train=987
+p_test=703
+print('---- After LSP ----')
+print('p_train: %d' % p_train)
+print('p_test: %d' % p_test)
 
-p_train, p_test = proc_mpii(tgt_path + "train/", tgt_path + "test/",
-                                      p_train, p_test, upi_path)
+#p_train = proc_lspet(tgt_path + "train/", p_train,
+#                          lspet_path, upi_path)
+p_train=6363
+p_test=703
+print('---- After LSPET ----')
+print('p_train: %d' % p_train)
+print('p_test: %d' % p_test)
+
+#p_train, p_test = proc_mpii(tgt_path + "train/", tgt_path + "test/",
+#                                      p_train, p_test, upi_path)
+p_train=14398
+p_test=2699
+print('---- After MPII ----')
+print('p_train: %d' % p_train)
+print('p_test: %d' % p_test)
 
 p_train, p_test = proc_coco(tgt_path + "train/", tgt_path + "test/",
                                       p_train, p_test, coco_list_path)
+#p_train=14398
+#p_test=2699
+print('---- After COCO ----')
+print('p_train: %d' % p_train)
+print('p_test: %d' % p_test)
 
-p_train, p_test = proc_h36m(tgt_path + "train/", tgt_path + "test/",
-                                      p_train, p_test, h36m_path)
+#p_train, p_test = proc_h36m(tgt_path + "train/", tgt_path + "test/",
+#                                      p_train, p_test, h36m_path)
 print("All done")

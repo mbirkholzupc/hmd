@@ -25,7 +25,7 @@ from utility import take_notes
 #0:10424 --> 8642:19065
 #10424:13030 --> 1000:3606
 def proc_mpii(train_dir, test_dir, train_id, test_id, upi_dir):
-    mpii_dir = upi_dir + "data/mpii/"
+    mpii_dir = upi_dir + "mpii/"
     faces = np.load("../predef/smpl_faces.npy")
     face_num = len(faces)
     
