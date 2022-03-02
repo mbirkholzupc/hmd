@@ -1,0 +1,6 @@
+tags
+cscope.out
+*.pyc
+*.DS_Store
+model/*
+*.swp
