@@ -620,6 +620,19 @@ def get_sil_bbox(sil, margin = 0):
         x_max += margin
     return y_min, y_max, x_min, x_max
 
+# get joint boundingbox - basically, just add margin if needed
+def get_joint_bbox(bbox, margin = 0):
+    y_min = bbox[1]
+    y_max = bbox[3]
+    x_min = bbox[0]
+    x_max = bbox[2]
+    if margin != 0:
+        y_min -= margin
+        x_min -= margin
+        y_max += margin
+        x_max += margin
+    return y_min, y_max, x_min, x_max
+
 # come from hmr-src/util/image.py
 def resize_img(img, scale_factor):
     new_size = (np.floor(np.array(img.shape[0:2]) * scale_factor)).astype(int)
@@ -675,8 +688,8 @@ def transform_mpii_joints(joints):
     joints_t = np.zeros((3, 14, num))
     joints_t[:,0:6,:] = joints[:,0:6,:] # lower limbs
     joints_t[:,6:12,:] = joints[:,10:16,:] # upper limbs
-    joints_t[:,12,:] = joints[:,8,:] # head
-    joints_t[:,13,:] = joints[:,9,:] # neck
+    joints_t[:,12,:] = joints[:,8,:] # neck (TODO: check)
+    joints_t[:,13,:] = joints[:,9,:] # head (TODO: check)
     
     
     # head compensation

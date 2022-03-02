@@ -5,6 +5,8 @@ import tensorflow as tf
 from utility import scale_and_crop
 from utility import shift_verts
 from utility import resize_img
+from utility import get_sil_bbox
+from utility import get_joint_bbox
 
 # cofigure hmr path
 import configparser
@@ -42,22 +44,49 @@ class hmr_predictor():
         self.sess = tf.Session()
         self.model = RunModel(self.config, sess=self.sess)
     
-    def predict(self, img, sil_bbox = False, sil = None, normalize = True):
+    def predict(self, img, sil_bbox = False, sil = None, normalize = True, use_j_bbox=False, j_bbox=None):
         if sil_bbox is True:
             std_img, proc_para = preproc_img(img, True, sil, normalize = normalize)
+        elif use_j_bbox is True:
+            std_img, proc_para = preproc_img(img, normalize = normalize, use_j_bbox=use_j_bbox, j_bbox=j_bbox, margin=30)
         else:
             std_img, proc_para = preproc_img(img, normalize = normalize)
         std_img = np.expand_dims(std_img, 0)# Add batch dimension
-        _, verts, ori_cam, _ = self.model.predict(std_img)
+
+        _, verts, ori_cam, joints, theta = self.model.predict(std_img)
+        #_, verts, ori_cam, joints, theta = self.model.predict(std_img, get_theta=True)
+        #print('Theta: ')
+        #print(theta)
+        #print('Joints: ')
+        #print(joints)
         shf_vert = shift_verts(proc_para, verts[0], ori_cam[0])
         cam = np.array([500, 112.0, 112.0])
         return shf_vert, cam, proc_para, std_img[0]
+
+    # Used for multiprocessing. Pre-processing already done in other process.
+    def predict_nopp(self, std_img, proc_para):
+        std_img = np.expand_dims(std_img, 0)# Add batch dimension
+        _, verts, ori_cam, joints = self.model.predict(std_img)
+        shf_vert = shift_verts(proc_para, verts[0], ori_cam[0])
+        cam = np.array([500, 112.0, 112.0])
+        return shf_vert, cam
     
     def close(self):
         self.sess.close()
 
+# Added for multiprocessing
+def predict_pponly(img, sil_bbox = False, sil = None, normalize = True, use_j_bbox=False, j_bbox=None):
+    if sil_bbox is True:
+        std_img, proc_para = preproc_img(img, True, sil, normalize = normalize)
+    elif use_j_bbox is True:
+        std_img, proc_para = preproc_img(img, normalize = normalize, use_j_bbox=use_j_bbox, j_bbox=j_bbox, margin=30)
+    else:
+        std_img, proc_para = preproc_img(img, normalize = normalize)
+    return std_img, proc_para
+
+
 # pre-processing original image to standard image for network
-def preproc_img(img, sil_bbox = False, sil = None, img_size = 224, margin = 15, normalize = False):
+def preproc_img(img, sil_bbox = False, sil = None, img_size = 224, margin = 15, normalize = False, use_j_bbox=False, j_bbox=None):
     # if grey, change to rgb
     if len(img.shape) == 2:
         img = np.stack((img,)*3, -1)
@@ -71,6 +100,18 @@ def preproc_img(img, sil_bbox = False, sil = None, img_size = 224, margin = 15, 
             return False
         # compute scale according to max of bounding box size
         bbox = get_sil_bbox(sil, margin = margin)
+        bbox_size = [bbox[1]-bbox[0], bbox[3]-bbox[2]]
+        if np.max(bbox_size) != img_size:
+            scale = (float(img_size) / np.max(bbox_size))
+        else:
+            scale = 1.
+        # compute center
+        center = np.array([bbox[1]+bbox[0], bbox[3]+bbox[2]]).astype(float)
+        center = np.round(center/2).astype(int)
+        center = center[::-1]
+        #center = center + np.array([img_size/2, img_size/2])
+    elif use_j_bbox is True:
+        bbox = get_joint_bbox(j_bbox, margin = margin)
         bbox_size = [bbox[1]-bbox[0], bbox[3]-bbox[2]]
         if np.max(bbox_size) != img_size:
             scale = (float(img_size) / np.max(bbox_size))

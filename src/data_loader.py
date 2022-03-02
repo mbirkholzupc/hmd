@@ -7,6 +7,11 @@ import pickle
 import torchvision.transforms as transforms
 from utility import center_crop
 
+try:
+    from pathlib import Path
+except:
+    from pathlib2 import Path
+
 import configparser
 conf = configparser.ConfigParser()
 conf.read(u'../conf.ini', encoding='utf8')
@@ -546,5 +551,197 @@ class dataloader_demo(Dataset):
         vert_norms = np.array(para_dic["vert_norms"])
         
         return (src_img, verts, vert_norms)
-    
-                
+
+
+#==============================================================================
+# BTFM Data Loaders
+#==============================================================================
+class dataloader_joint_btfm(Dataset):
+    def __init__(self, 
+                 sil_ver = False,
+                 train = True,
+                 transform = transforms.Compose([transforms.ToTensor()]),
+                 manual_seed = 1234,
+                 shuffle = True,
+                 get_all = False,
+                ):
+
+        if train is True:
+            self.dataset_dir = tgt_path + "train/"
+            # Make list of training indices and count them
+            all_img_files=sorted(list(Path(tgt_path+'train/img').glob('*')))
+            all_img_files=[x.name for x in all_img_files]
+            trn_indices=[int(x[5:13]) for x in all_img_files]
+            self.num = 10*len(trn_indices)
+        else:
+            self.dataset_dir = tgt_path + "test/"
+            # Make list of test indices and count them
+            all_img_files=sorted(list(Path(tgt_path+'test/img').glob('*')))
+            all_img_files=[x.name for x in all_img_files]
+            tst_indices=[int(x[5:13]) for x in all_img_files]
+            self.num = 10*len(tst_indices)
+
+        # transfer arg
+        self.sil_ver = sil_ver
+        self.transform = transform
+        self.get_all = get_all
+        
+        # make random seed
+        if manual_seed is None:
+            manual_seed = random.randint(1, 10000)
+        random.seed(manual_seed)
+        
+        # make data_id list and shuffle
+        self.id_list = list(range(self.num))
+        if shuffle is True:
+            random.shuffle(self.id_list)
+
+    def __len__(self):
+        return self.num
+        
+    def __getitem__(self, index):
+        crt_id = self.id_list[index]
+        img_id = int(np.floor(crt_id / 10))
+        joint_id = crt_id % 10
+        
+        # get sil
+        all_sil = np.array(PIL.Image.open(self.dataset_dir + 
+                                      "sil/%08d.png" % img_id))
+        all_sil[all_sil<128] = 0
+        all_sil[all_sil>=128] = 255
+        
+        # get parameters
+        with open (self.dataset_dir + "/para/%08d.json" % img_id, 'rb') as fp:
+            para_dic = json.load(fp)
+        joint_move = para_dic["joint_move"]
+        joint_posi = para_dic["joint_posi"]
+        
+        # make target para
+        tgt_para = np.array(joint_move[(joint_id*2):(joint_id*2+2)])
+        
+        if self.sil_ver is False:
+            # make input array for image version
+            img_file = para_dic["img_file"]
+            src_img = np.array(PIL.Image.open(self.dataset_dir + img_file))
+            src_sil = np.expand_dims(all_sil[:,:,1], 2)
+            crop_sil = center_crop(src_sil, joint_posi[joint_id], 64)
+            crop_img = center_crop(src_img, joint_posi[joint_id], 64)
+            crop_img = crop_img.astype(np.int)
+            crop_img = crop_img - crop_img[31, 31, :]
+            crop_img = np.absolute(crop_img)
+
+            src_in = np.concatenate((crop_sil, crop_img), axis = 2)
+        else:
+            # make input array for silhouette version
+            src_sil = all_sil[:,:,:2]
+            src_in = center_crop(src_sil, joint_posi[joint_id], 64)
+            
+        # transform as torch tensor
+        src_in = PIL.Image.fromarray(src_in.astype(np.uint8))
+        if self.transform != None:
+            src_in = self.transform(src_in)
+        
+        if self.get_all is True and self.sil_ver is False:
+            # get verts and vert_norms
+            verts = np.array(para_dic["verts"])
+            vert_norms = np.array(para_dic["vert_norms"])
+            proc_para = para_dic["proc_para"]
+            return (src_in, tgt_para, src_img, verts, 
+                    vert_norms, proc_para, all_sil)
+        else:
+            return (src_in, tgt_para)
+
+class dataloader_anchor_btfm(Dataset):
+    def __init__(self, 
+                 sil_ver = False,
+                 train = True,
+                 transform = transforms.Compose([transforms.ToTensor()]),
+                 manual_seed = 1234,
+                 shuffle = True,
+                 get_all = False,
+                ):
+        if train is True:
+            self.dataset_dir = tgt_path + "train/"
+            # Make list of training indices and count them
+            all_img_files=sorted(list(Path(tgt_path+'train/img').glob('*')))
+            all_img_files=[x.name for x in all_img_files]
+            trn_indices=[int(x[5:13]) for x in all_img_files]
+            self.num = 200*len(trn_indices)
+        else:
+            self.dataset_dir = tgt_path + "test/"
+            # Make list of test indices and count them
+            all_img_files=sorted(list(Path(tgt_path+'test/img').glob('*')))
+            all_img_files=[x.name for x in all_img_files]
+            tst_indices=[int(x[5:13]) for x in all_img_files]
+            self.num = 200*len(tst_indices)
+
+        # transfer arg
+        self.sil_ver = sil_ver
+        self.transform = transform
+        self.get_all = get_all
+        
+        # make random seed
+        if manual_seed is None:
+            manual_seed = random.randint(1, 10000)
+        random.seed(manual_seed)
+        
+        # make data_id list and shuffle
+        self.id_list = list(range(self.num))
+        if shuffle is True:
+            random.shuffle(self.id_list)
+
+    def __len__(self):
+        return self.num
+        
+    def __getitem__(self, index):
+        crt_id = self.id_list[index]
+        img_id = int(np.floor(crt_id / 200))
+        achr_id = crt_id % 200
+        
+        # get sil
+        all_sil = np.array(PIL.Image.open(self.dataset_dir + 
+                                      "sil/%08d.png" % img_id))
+        all_sil[all_sil<128] = 0
+        all_sil[all_sil>=128] = 255
+        
+        # get parameters
+        with open (self.dataset_dir + "/para/%08d.json" % img_id, 'rb') as fp:
+            para_dic = json.load(fp)
+        achr_move = np.array(para_dic["achr_move"])
+        achr_posi = para_dic["achr_posi"]
+        
+        # get source image
+        img_file = para_dic["img_file"]
+        src_img = np.array(PIL.Image.open(self.dataset_dir + img_file))
+        
+        tgt_para = achr_move[achr_id]
+        tgt_para = np.expand_dims(tgt_para, 0)
+        
+        
+        if self.sil_ver is False:
+            src_sil = np.expand_dims(all_sil[:,:,2], 2)
+            crop_sil = center_crop(src_sil, achr_posi[achr_id], 32)
+            crop_img = center_crop(src_img, achr_posi[achr_id], 32)
+            crop_img = crop_img.astype(np.int)
+            crop_img = crop_img - crop_img[15, 15, :]
+            crop_img = np.absolute(crop_img)
+            src_in = np.concatenate((crop_sil, crop_img), axis = 2)
+        else:
+            # make input array for silhouette version
+            src_sil = np.stack((all_sil[:,:,0], all_sil[:,:,2]), axis = -1)
+            src_in = center_crop(src_sil, achr_posi[achr_id], 32)
+            
+        # transform as torch tensor
+        src_in = PIL.Image.fromarray(src_in.astype(np.uint8))
+        if self.transform != None:
+            src_in = self.transform(src_in)
+            
+        if self.get_all is True and self.sil_ver is False:
+            # get verts and vert_norms
+            verts = np.array(para_dic["verts"])
+            vert_norms = np.array(para_dic["vert_norms"])
+            proc_para = para_dic["proc_para"]
+            return (src_in, tgt_para, src_img, verts, 
+                    vert_norms, proc_para, all_sil)
+        else:
+            return (src_in, tgt_para)
